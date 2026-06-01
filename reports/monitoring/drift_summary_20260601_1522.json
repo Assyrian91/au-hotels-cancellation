@@ -1,0 +1,8 @@
+{
+  "timestamp": "20260601_1522",
+  "drift_detected": false,
+  "drift_share": 0.237,
+  "reference_rows": 60460,
+  "current_rows": 25912,
+  "report_path": "C:\\Users\\HB Laptop Store\\Desktop\\hotel_bookings\\reports\\monitoring\\drift_report_20260601_1522.html"
+}

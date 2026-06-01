@@ -233,3 +233,4 @@ xyzservices==2026.3.0
 yarl==1.24.2
 ydata-profiling==4.18.4
 zipp==4.1.0
+prometheus-client

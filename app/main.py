@@ -7,6 +7,9 @@ import pandas as pd
 from pathlib import Path
 import xgboost as xgb
 import uvicorn
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+import time
 
 # ── Load model & metadata ─────────────────────────────────────────────────
 BASE = Path(__file__).parent.parent
@@ -194,7 +197,31 @@ def build_input(req: BookingRequest) -> pd.DataFrame:
     df = df.reindex(columns=feature_names, fill_value=0)
     return df
 
-
+# ── Prometheus metrics ────────────────────────────────────────────────────
+REQUEST_COUNT = Counter(
+    "hotel_api_requests_total",
+    "Total prediction requests",
+    ["method", "endpoint", "status"]
+)
+REQUEST_LATENCY = Histogram(
+    "hotel_api_request_latency_seconds",
+    "Request latency in seconds",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
+)
+PREDICTION_SCORE = Histogram(
+    "hotel_cancellation_probability",
+    "Distribution of predicted cancellation probabilities",
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+)
+HIGH_RISK_COUNT = Counter(
+    "hotel_high_risk_predictions_total",
+    "Total HIGH risk predictions"
+)
+MODEL_AUC = Gauge(
+    "hotel_model_auc_roc",
+    "Current champion model AUC-ROC"
+)
+MODEL_AUC.set(meta.get("auc_roc", 0))
 # ── Routes ────────────────────────────────────────────────────────────────
 @app.get("/")
 def root():
@@ -219,30 +246,42 @@ def health():
 def model_info():
     return meta
 
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.post("/predict")
 def predict(booking: BookingRequest):
+    start_time = time.time()
     try:
-        X = build_input(booking)
+        X    = build_input(booking)
         prob = float(model.predict_proba(X)[0][1])
         pred = int(prob >= meta["threshold"])
         risk = "HIGH" if prob >= 0.7 else "MEDIUM" if prob >= 0.4 else "LOW"
 
+        # Track metrics
+        PREDICTION_SCORE.observe(prob)
+        REQUEST_COUNT.labels("POST", "/predict", "200").inc()
+        if risk == "HIGH":
+            HIGH_RISK_COUNT.inc()
+
         return {
             "cancellation_probability": round(prob, 4),
-            "will_cancel": bool(pred),
-            "risk_level": risk,
+            "will_cancel":  bool(pred),
+            "risk_level":   risk,
             "recommendation": {
                 "HIGH":   "Request non-refundable deposit or offer retention incentive",
                 "MEDIUM": "Monitor — consider flexible rebooking offer",
                 "LOW":    "Standard booking — no action required"
             }[risk],
             "model_version": meta["model_type"],
-            "auc_roc": meta["auc_roc"]
+            "auc_roc":       meta["auc_roc"]
         }
     except Exception as e:
+        REQUEST_COUNT.labels("POST", "/predict", "422").inc()
         raise HTTPException(status_code=422, detail=str(e))
-
+    finally:
+        REQUEST_LATENCY.observe(time.time() - start_time)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
