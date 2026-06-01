@@ -1,0 +1,11 @@
+{
+  "model_type": "XGBoost_Tuned",
+  "auc_roc": 0.8739,
+  "f1": 0.6769,
+  "accuracy": 0.8008,
+  "feature_count": 52,
+  "optuna_trials": 50,
+  "trained_on": "2026-06-01",
+  "dataset_rows": 69134,
+  "threshold": 0.5
+}

@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.env
+
+# Data
+data/raw/
+data/processed/
+
+# Models
+models/registry/champion_model.pkl
+models/registry/champion_model.ubj
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MLflow
+mlruns/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
