@@ -26,3 +26,8 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Monitoring reports (too large, regenerated on each run)
+reports/monitoring/*.html
+reports/monitoring/*.json
+reports/figures/*.png
